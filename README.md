@@ -59,7 +59,7 @@ python scripts/render_website.py brag-output/malihub-capture/manifest.json \
 
 ### Camera movement and transitions
 
-The website renderer varies slow zooms and pans across scenes, then alternates restrained transitions so the film does not feel like a static slideshow.
+The website renderer uses quadratic ease-in-out camera motion (gentle acceleration and settling), varies slow zooms and pans across scenes, then alternates restrained transitions so the film does not feel like a static slideshow.
 
 - `--motion-style cinematic`: alternating push-ins, pull-backs, and directional pans.
 - `--motion-style subtle`: gentler centered zooms for text-heavy screens.
@@ -85,6 +85,21 @@ python scripts/add_music.py brag-output/malihub-website-film.mp4 \
 ```
 
 The music mixer keeps the original video stream without re-encoding it, loops shorter tracks as needed, trims the soundtrack to the video duration, and applies gentle fade-in and fade-out. Adjust `--volume` between `0.0` and `1.0`; around `0.18`–`0.28` is a useful starting point for background music.
+
+### Optional narration with automatic music ducking
+
+If you have a narration track, mix it over the rendered video and let FFmpeg reduce the music while speech is present. The original video stream is copied without re-encoding.
+
+```bash
+python scripts/mix_narration.py brag-output/malihub-website-film.mp4 \
+  --voiceover assets/audio/narration.mp3 \
+  --music assets/music/promo-track.mp3 \
+  --output brag-output/malihub-website-film-narrated.mp4 \
+  --music-volume 0.24 --voice-volume 1.0 --fade 1.5
+python scripts/validate_video.py brag-output/malihub-website-film-narrated.mp4
+```
+
+This is an optional narration workflow; the existing `add_music.py` path remains the simpler choice for music-only promos. Review the mix by listening on speakers or headphones before publishing. The mixer needs FFmpeg with the `sidechaincompress` filter available.
 
 Validate and play the final version:
 
