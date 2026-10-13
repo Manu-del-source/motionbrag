@@ -71,7 +71,30 @@ The website renderer uses quadratic ease-in-out camera motion (gentle accelerati
 
 For an energetic cut, try `--transition-style energetic --transition 0.25`. If your local FFmpeg build reports an unsupported transition, switch to `--transition-style clean`.
 
-### Add an energetic soundtrack
+### Story-led website renderer (redesign preview)
+
+The redesign lives alongside the original renderer in `scripts/render_website_story.py`, so the existing pipeline stays intact while this version is evaluated. It follows the BRAG-SLIM *workflow*—real product screens, scene-specific copy, a deliberate story, and reviewable deliverables—without copying its source.
+
+Key differences:
+- **No screenshot crop or zoom.** Captured pixels are scaled proportionally and fully contained in a browser-style frame; only the complete composed card drifts a few pixels.
+- **Captions outside the interface.** Page metadata is used when present; otherwise copy is derived from the captured URL rather than generic slogans.
+- **Purposeful package.** Produces the MP4, `brag.jpg` thumbnail, `brag-plan.md` scene list, and `share-copy.txt`.
+- **Conservative resources.** Renders frames one at a time and uses JPEG intermediates to keep memory use manageable on modest hardware.
+
+Test it against an existing capture without overwriting your current video:
+
+```bash
+python scripts/render_website_story.py brag-output/malihub-capture/manifest.json \
+  --output brag-output/malihub-story-redesign-v1.mp4 \
+  --duration 30 --width 1280 --height 720 --fps 24 \
+  --transition 0.35 --transition-style clean
+python scripts/validate_video.py brag-output/malihub-story-redesign-v1.mp4
+xdg-open brag-output/malihub-story-redesign-v1.mp4
+```
+
+This is a preview implementation, not yet verified against every local capture. Review the whole video for text legibility and confirm the browser frame preserves the details you need before replacing the older renderer.
+
+## Add an energetic soundtrack
 
 Download a track whose license allows your intended use (for example, an instrumental electronic, upbeat, or cinematic track from [Mixkit's free music library](https://mixkit.co/free-stock-music/) or [Pixabay Music](https://pixabay.com/music/)). Check the specific track's license and keep a copy of its license/attribution details with your project. Do not use commercial chart music unless you have permission.
 
