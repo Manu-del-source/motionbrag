@@ -264,7 +264,8 @@ def main() -> int:
     scene_text = [scene_copy(shot, i, len(selected), source_url) for i, (shot, _) in enumerate(selected)]
     args.output.parent.mkdir(parents=True, exist_ok=True)
     transition = min(max(0.0, args.transition), 0.8)
-    frames_per_scene = max(2, round(args.duration * args.fps / len(selected)))
+    # Xfade overlaps shorten the combined runtime, so include the overlaps when sizing each clip.
+    frames_per_scene = max(2, round((args.duration + transition * (len(selected) - 1)) * args.fps / len(selected)))
     actual_scene = frames_per_scene / args.fps
     actual_transition = min(transition, actual_scene * 0.18)
     thumb_path = args.output.parent / ".brag-thumbnail.jpg"
