@@ -48,13 +48,28 @@ python scripts/capture_site.py https://malihub.smartbiz365.site/ \
 
 The capture folder contains `shot-01.png`, `shot-02.png`, etc. and a `manifest.json`. Review the screenshots before rendering. Captures may include cookie notices or other overlays shown by the site.
 
-Render a 30–60-second film:
+Render a 30–60-second film. For a sharper promo on a modest machine, start at 1280×720 and 24 fps:
 
 ```bash
 python scripts/render_website.py brag-output/malihub-capture/manifest.json \
   --output brag-output/malihub-website-film.mp4 \
-  --duration 30 --width 640 --height 360 --fps 24
+  --duration 30 --width 1280 --height 720 --fps 24 \
+  --motion-style cinematic --transition-style cinematic
 ```
+
+### Camera movement and transitions
+
+The website renderer varies slow zooms and pans across scenes, then alternates restrained transitions so the film does not feel like a static slideshow.
+
+- `--motion-style cinematic`: alternating push-ins, pull-backs, and directional pans.
+- `--motion-style subtle`: gentler centered zooms for text-heavy screens.
+- `--motion-style static`: no intentional camera movement.
+- `--transition-style cinematic`: a restrained mix of fades and directional transitions.
+- `--transition-style clean`: crossfades only.
+- `--transition-style energetic`: stronger wipes and slides; best for short, punchy promos.
+- `--transition 0.3`: a good starting transition duration. Keep it short so the interface stays readable.
+
+For an energetic cut, try `--transition-style energetic --transition 0.25`. If your local FFmpeg build reports an unsupported transition, switch to `--transition-style clean`.
 
 ### Add an energetic soundtrack
 
