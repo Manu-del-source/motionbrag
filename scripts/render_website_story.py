@@ -83,18 +83,22 @@ def scene_copy(shot: dict, index: int, total: int, source_url: str) -> tuple[str
 
 
 def gradient_background(width: int, height: int, accent: tuple[int, int, int]) -> Image.Image:
+    # Draw scanlines with Pillow primitives instead of Python per-pixel loops; this matters
+    # when a low-memory laptop renders hundreds of frames.
     im = Image.new("RGB", (width, height))
-    pix = im.load()
+    draw = ImageDraw.Draw(im)
     for y in range(height):
         t = y / max(1, height - 1)
         base = tuple(round(BG_TOP[i] * (1 - t) + BG_BOTTOM[i] * t) for i in range(3))
-        for x in range(width):
-            # A restrained accent glow, far behind the product window.
-            dx = (x - width * 0.78) / (width * 0.85)
-            dy = (y - height * 0.08) / (height * 0.8)
-            glow = max(0.0, 1.0 - math.sqrt(dx * dx + dy * dy)) * 0.10
-            pix[x, y] = tuple(min(255, round(base[i] * (1 - glow) + accent[i] * glow)) for i in range(3))
-    return im
+        draw.line((0, y, width, y), fill=base)
+    glow = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    gd = ImageDraw.Draw(glow)
+    radius = round(min(width, height) * 0.62)
+    cx, cy = round(width * 0.78), round(height * 0.08)
+    gd.ellipse((cx - radius, cy - radius, cx + radius, cy + radius),
+               fill=(*accent, 24))
+    glow = glow.filter(ImageFilter.GaussianBlur(max(1, round(min(width, height) * 0.16))))
+    return Image.alpha_composite(im.convert("RGBA"), glow).convert("RGB")
 
 
 def compose_scene(source: Path, out: Path, width: int, height: int, index: int, total: int,
