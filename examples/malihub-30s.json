@@ -1,0 +1,38 @@
+{
+  "title": "Meet MaliHub",
+  "tagline": "Discover local fashion in one place",
+  "call_to_action": "Explore MaliHub today",
+  "duration": 30,
+  "width": 1280,
+  "height": 720,
+  "fps": 30,
+  "brand_color": "#D68A52",
+  "background_color": "#101014",
+  "scenes": [
+    {
+      "title": "Your next favourite is out there",
+      "subtitle": "Discover a fresh way to explore fashion",
+      "duration": 5
+    },
+    {
+      "title": "Meet MaliHub",
+      "subtitle": "A marketplace built for fashion discovery",
+      "duration": 5
+    },
+    {
+      "title": "Explore styles and products",
+      "subtitle": "Browse items from online sellers",
+      "duration": 7
+    },
+    {
+      "title": "Find something that feels like you",
+      "subtitle": "A simpler way to discover your next look",
+      "duration": 7
+    },
+    {
+      "title": "Your style starts here",
+      "subtitle": "Visit malihub.smartbiz365.site",
+      "duration": 6
+    }
+  ]
+}
