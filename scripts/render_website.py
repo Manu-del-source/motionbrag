@@ -102,7 +102,7 @@ def main() -> int:
     parser.add_argument("--accent", default="#D68A52", help="Caption accent color, e.g. #D68A52")
     parser.add_argument("--transition", type=float, default=0.4, help="Transition duration in seconds")
     parser.add_argument("--motion-style", choices=("cinematic", "subtle", "static"), default="cinematic",
-                        help="Camera movement preset (default: cinematic)")
+                        help="Camera movement preset (default: cinematic; restrained zoom)")
     parser.add_argument("--transition-style", choices=("cinematic", "clean", "energetic"), default="cinematic",
                         help="Transition preset (default: cinematic)")
     args = parser.parse_args()
@@ -181,30 +181,30 @@ def main() -> int:
                     f"{actual_clip_seconds:.6f}", "-i", str(frame)]
 
         filters = []
-        # Give each scene a distinct camera path. A stronger but still restrained
-        # 8% dolly makes motion visible at 720p; eased paths avoid mechanical starts.
+        # Motion should come from gentle reframing, not aggressive zoom.
+        # Keep magnification below 2.5% to protect small interface text.
         last_frame = max(1, frames_per_clip - 1)
         p = f"(on/{last_frame})"
         eased = f"if(lt({p},0.5),2*pow({p},2),1-2*pow(1-{p},2))"
         motion_moves = [
-            # Push in while travelling left-to-right.
-            (f"1+0.08*({eased})",
-             f"(iw-iw/zoom)*({eased})*0.92", "(ih-ih/zoom)*0.20"),
-            # Push in in the opposite direction with a gentle downward drift.
-            (f"1+0.075*({eased})",
-             f"(iw-iw/zoom)*(1-({eased})*0.92)", f"(ih-ih/zoom)*(0.25+({eased})*0.48)"),
-            # Pull back to reveal more of the interface.
-            (f"1.08-0.08*({eased})",
-             f"(iw-iw/zoom)*(0.88-({eased})*0.76)", f"(ih-ih/zoom)*(0.72-({eased})*0.48)"),
-            # Slow vertical reveal with a subtle push.
-            (f"1+0.065*({eased})",
-             f"(iw-iw/zoom)*(0.18+({eased})*0.48)", f"(ih-ih/zoom)*(1-({eased})*0.88)"),
+            # A tiny push with a slow horizontal drift.
+            (f"1+0.02*({eased})",
+             f"(iw-iw/zoom)*({eased})*0.85", f"(ih-ih/zoom)*0.30"),
+            # Drift back across the composition, almost level.
+            (f"1+0.015*({eased})",
+             f"(iw-iw/zoom)*(1-({eased})*0.85)", f"(ih-ih/zoom)*0.62"),
+            # A gentle pull-back instead of another push-in.
+            (f"1.02-0.02*({eased})",
+             f"(iw-iw/zoom)*(0.82-({eased})*0.64)", f"(ih-ih/zoom)*(0.70-({eased})*0.38)"),
+            # Very small vertical drift.
+            (f"1+0.018*({eased})",
+             f"(iw-iw/zoom)*(0.20+({eased})*0.55)", f"(ih-ih/zoom)*(1-({eased})*0.78)"),
         ]
         for i in range(len(prepared)):
             if args.motion_style == "static":
                 zoom, xpos, ypos = ("1.0", "iw/2-(iw/zoom/2)", "ih/2-(ih/zoom/2)")
             elif args.motion_style == "subtle":
-                zoom = f"1+0.04*({eased})"
+                zoom = f"1+0.01*({eased})"
                 xpos, ypos = ("iw/2-(iw/zoom/2)", "ih/2-(ih/zoom/2)")
             else:
                 zoom, xpos, ypos = motion_moves[i % len(motion_moves)]
