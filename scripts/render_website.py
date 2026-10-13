@@ -181,26 +181,30 @@ def main() -> int:
                     f"{actual_clip_seconds:.6f}", "-i", str(frame)]
 
         filters = []
-        # Use quadratic ease-in-out so camera movement accelerates and settles
-        # naturally. Keep zoom conservative so website text remains legible.
+        # Give each scene a distinct camera path. A stronger but still restrained
+        # 8% dolly makes motion visible at 720p; eased paths avoid mechanical starts.
         last_frame = max(1, frames_per_clip - 1)
         p = f"(on/{last_frame})"
         eased = f"if(lt({p},0.5),2*pow({p},2),1-2*pow(1-{p},2))"
         motion_moves = [
-            (f"1+0.045*({eased})",
-             f"(iw-iw/zoom)*({eased})*0.72", "(ih-ih/zoom)*0.18"),
-            (f"1+0.045*({eased})",
-             f"(iw-iw/zoom)*(1-({eased})*0.72)", "(ih-ih/zoom)*0.78"),
-            (f"1.045-0.045*({eased})",
-             f"(iw-iw/zoom)*(0.78-({eased})*0.62)", "(ih-ih/zoom)*0.22"),
-            (f"1+0.045*({eased})",
-             "(iw-iw/zoom)*0.48", f"(ih-ih/zoom)*(1-({eased})*0.58)"),
+            # Push in while travelling left-to-right.
+            (f"1+0.08*({eased})",
+             f"(iw-iw/zoom)*({eased})*0.92", "(ih-ih/zoom)*0.20"),
+            # Push in in the opposite direction with a gentle downward drift.
+            (f"1+0.075*({eased})",
+             f"(iw-iw/zoom)*(1-({eased})*0.92)", f"(ih-ih/zoom)*(0.25+({eased})*0.48)"),
+            # Pull back to reveal more of the interface.
+            (f"1.08-0.08*({eased})",
+             f"(iw-iw/zoom)*(0.88-({eased})*0.76)", f"(ih-ih/zoom)*(0.72-({eased})*0.48)"),
+            # Slow vertical reveal with a subtle push.
+            (f"1+0.065*({eased})",
+             f"(iw-iw/zoom)*(0.18+({eased})*0.48)", f"(ih-ih/zoom)*(1-({eased})*0.88)"),
         ]
         for i in range(len(prepared)):
             if args.motion_style == "static":
                 zoom, xpos, ypos = ("1.0", "iw/2-(iw/zoom/2)", "ih/2-(ih/zoom/2)")
             elif args.motion_style == "subtle":
-                zoom = f"1+0.025*({eased})"
+                zoom = f"1+0.04*({eased})"
                 xpos, ypos = ("iw/2-(iw/zoom/2)", "ih/2-(ih/zoom/2)")
             else:
                 zoom, xpos, ypos = motion_moves[i % len(motion_moves)]
