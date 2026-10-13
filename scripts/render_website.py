@@ -181,24 +181,27 @@ def main() -> int:
                     f"{actual_clip_seconds:.6f}", "-i", str(frame)]
 
         filters = []
-        # Vary the camera move per scene so the film feels edited rather than like
-        # one repeated zoom. Expressions stay intentionally modest for website text.
+        # Use quadratic ease-in-out so camera movement accelerates and settles
+        # naturally. Keep zoom conservative so website text remains legible.
+        last_frame = max(1, frames_per_clip - 1)
+        p = f"(on/{last_frame})"
+        eased = f"if(lt({p},0.5),2*pow({p},2),1-2*pow(1-{p},2))"
         motion_moves = [
-            ("min(1.0+0.00045*on,1.055)", "(iw-iw/zoom)*min(on/%d,1)*0.72" % frames_per_clip,
-             "(ih-ih/zoom)*0.18"),
-            ("min(1.0+0.00045*on,1.055)", "(iw-iw/zoom)*(1-min(on/%d,1)*0.72)" % frames_per_clip,
-             "(ih-ih/zoom)*0.78"),
-            ("max(1.055-0.00045*on,1.0)", "(iw-iw/zoom)*(0.78-min(on/%d,1)*0.62)" % frames_per_clip,
-             "(ih-ih/zoom)*0.22"),
-            ("min(1.0+0.00045*on,1.055)", "(iw-iw/zoom)*0.48",
-             "(ih-ih/zoom)*(1-min(on/%d,1)*0.58)" % frames_per_clip),
+            (f"1+0.045*({eased})",
+             f"(iw-iw/zoom)*({eased})*0.72", "(ih-ih/zoom)*0.18"),
+            (f"1+0.045*({eased})",
+             f"(iw-iw/zoom)*(1-({eased})*0.72)", "(ih-ih/zoom)*0.78"),
+            (f"1.045-0.045*({eased})",
+             f"(iw-iw/zoom)*(0.78-({eased})*0.62)", "(ih-ih/zoom)*0.22"),
+            (f"1+0.045*({eased})",
+             "(iw-iw/zoom)*0.48", f"(ih-ih/zoom)*(1-({eased})*0.58)"),
         ]
         for i in range(len(prepared)):
             if args.motion_style == "static":
                 zoom, xpos, ypos = ("1.0", "iw/2-(iw/zoom/2)", "ih/2-(ih/zoom/2)")
             elif args.motion_style == "subtle":
-                zoom, xpos, ypos = ("min(zoom+0.00020,1.035)",
-                                    "iw/2-(iw/zoom/2)", "ih/2-(ih/zoom/2)")
+                zoom = f"1+0.025*({eased})"
+                xpos, ypos = ("iw/2-(iw/zoom/2)", "ih/2-(ih/zoom/2)")
             else:
                 zoom, xpos, ypos = motion_moves[i % len(motion_moves)]
             filters.append(
