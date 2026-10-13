@@ -1,0 +1,19 @@
+{
+  "title": "Meet MaliHub",
+  "tagline": "A better way to discover local fashion",
+  "call_to_action": "Explore MaliHub",
+  "duration": 30,
+  "width": 1280,
+  "height": 720,
+  "fps": 30,
+  "brand_color": "#D68A52",
+  "background_color": "#101014",
+  "transition": {"type": "crossfade", "duration": 0.5},
+  "scenes": [
+    {"type": "title", "title": "Discover something different", "subtitle": "Style starts with discovery", "duration": 4},
+    {"type": "media", "image": "brag-output/capture/section-01.png", "title": "Explore the marketplace", "motion": "zoom_in", "frame": "browser", "duration": 6},
+    {"type": "media", "image": "brag-output/capture/section-02.png", "title": "Browse products in one place", "motion": "pan_up", "frame": "browser", "duration": 6},
+    {"type": "media", "image": "brag-output/capture/section-03.png", "title": "Pay with M-Pesa", "motion": "zoom_out", "frame": "browser", "duration": 6},
+    {"type": "title", "title": "Your style. Your choice.", "subtitle": "Discover MaliHub today", "duration": 5}
+  ]
+}
