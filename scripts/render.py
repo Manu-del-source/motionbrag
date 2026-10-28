@@ -176,7 +176,7 @@ def main() -> int:
             cmd = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
                    "-loop", "1", "-framerate", str(fps), "-i", str(image_path),
                    "-vf", vf, "-frames:v", str(frames), "-an",
-                   "-c:v", "libx264", "-preset", args.preset, "-crf", "23",
+                   "-c:v", "libopenh264", "-preset", args.preset, "-crf", "23",
                    str(clip_path)]
             result = subprocess.run(cmd, text=True, capture_output=True)
             if result.returncode:

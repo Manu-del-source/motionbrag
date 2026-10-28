@@ -101,7 +101,15 @@ def main() -> int:
     parser.add_argument("--fps", type=int, default=30)
     parser.add_argument("--accent", default="#D68A52", help="Caption accent color, e.g. #D68A52")
     parser.add_argument("--transition", type=float, default=0.4, help="Crossfade duration in seconds")
+    parser.add_argument("--preview", action="store_true", help="Render a fast preview with optimized speed and resolution")
+    parser.add_argument("--preview-duration", type=float, default=12.0, help="Duration for --preview mode in seconds")
     args = parser.parse_args()
+
+    if args.preview:
+        args.width = 1280
+        args.height = 720
+        args.fps = 24
+        args.duration = min(args.duration, args.preview_duration)
 
     if not shutil.which("ffmpeg"):
         print("ERROR: FFmpeg is not installed or not on PATH.", file=sys.stderr)

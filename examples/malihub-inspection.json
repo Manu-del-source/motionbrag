@@ -1,0 +1,42 @@
+
+{
+  "title": "MaliHub Promotional Video",
+  "duration": 45,
+  "width": 1280,
+  "height": 720,
+  "fps": 30,
+  "background": "#101014",
+  "accent": "#D68A52",
+  "scenes": [
+    {
+      "title": "YOUR STORE. YOUR FUTURE.",
+      "subtitle": "Meet MaliHub",
+      "duration": 7
+    },
+    {
+      "title": "BRING YOUR FASHION ONLINE",
+      "subtitle": "Give your products a digital storefront",
+      "duration": 7
+    },
+    {
+      "title": "SHOWCASE YOUR COLLECTION",
+      "subtitle": "Present your products to potential customers",
+      "duration": 7
+    },
+    {
+      "title": "MANAGE YOUR ORDERS",
+      "subtitle": "Keep your selling workflow organised",
+      "duration": 7
+    },
+    {
+      "title": "BUILT FOR ONLINE SELLERS",
+      "subtitle": "A marketplace experience for fashion businesses",
+      "duration": 7
+    },
+    {
+      "title": "YOUR NEXT CHAPTER STARTS HERE",
+      "subtitle": "Discover MaliHub",
+      "duration": 10
+    }
+  ]
+}
