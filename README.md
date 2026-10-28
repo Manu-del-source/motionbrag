@@ -8,7 +8,8 @@ This repository is an independent implementation and does not include or copy BR
 
 - Capture a sequence of real website viewport screenshots with Playwright.
 - Scroll pages to reveal content below the fold, including lazy-loaded sections.
-- Render screenshots as motion-led video scenes with animated camera zooms, captions, progress marks, and crossfades.
+- Render screenshots as motion-led video scenes with camera zooms, captions, progress marks, and crossfades.
+- Add a licensed soundtrack after rendering, with adjustable volume and fade-in/fade-out.
 - Automatically select an encoder available in the local FFmpeg build (libx264, libopenh264, or mpeg4).
 - Validate duration, dimensions, frame rate, codecs, and complete video decoding.
 - Keep the typography-only renderer as a separate mode.
@@ -20,7 +21,7 @@ This repository is an independent implementation and does not include or copy BR
 - Pillow and Playwright (installed from requirements.txt)
 - Chromium for Playwright
 
-On Fedora, use your enabled FFmpeg repositories and check ffmpeg -version. Some Fedora builds omit encoders such as libx264; the website renderer detects libopenh264 as a fallback when available.
+On Fedora, use your enabled FFmpeg repositories and check `ffmpeg -version`. Some Fedora builds omit encoders such as libx264; the website renderer detects libopenh264 as a fallback when available.
 
 ## Setup on Fedora
 
@@ -33,7 +34,7 @@ pip install -r requirements.txt
 python -m playwright install chromium
 ```
 
-If Playwright reports missing operating-system libraries, follow the dependency instructions printed by python -m playwright install --with-deps chromium only if supported by your distribution, or install the missing Fedora packages through DNF.
+If Playwright reports missing operating-system libraries, follow the dependency instructions printed by `python -m playwright install --with-deps chromium` only if supported by your distribution, or install the missing Fedora packages through DNF.
 
 ## Create a website promo
 
@@ -45,32 +46,64 @@ python scripts/capture_site.py https://malihub.smartbiz365.site/ \
   --shots 6
 ```
 
-The capture folder contains shot-01.png, shot-02.png, etc. and a manifest.json. Review the screenshots before rendering. Captures may include cookie notices or other overlays shown by the site.
+The capture folder contains `shot-01.png`, `shot-02.png`, etc. and a `manifest.json`. Review the screenshots before rendering. Captures may include cookie notices or other overlays shown by the site.
 
-Render a 45-second film:
+Render a 30–60-second film. For a sharper promo on a modest machine, start at 1280×720 and 24 fps:
 
 ```bash
 python scripts/render_website.py brag-output/malihub-capture/manifest.json \
-  --output brag-output/malihub-website-film.mp4
+  --output brag-output/malihub-website-film.mp4 \
+  --duration 30 --width 1280 --height 720 --fps 24 \
+  --motion-style cinematic --transition-style cinematic
 ```
 
-Validate and play it:
+### Camera movement and transitions
+
+The website renderer varies slow zooms and pans across scenes, then alternates restrained transitions so the film does not feel like a static slideshow.
+
+- `--motion-style cinematic`: alternating push-ins, pull-backs, and directional pans.
+- `--motion-style subtle`: gentler centered zooms for text-heavy screens.
+- `--motion-style static`: no intentional camera movement.
+- `--transition-style cinematic`: a restrained mix of fades and directional transitions.
+- `--transition-style clean`: crossfades only.
+- `--transition-style energetic`: stronger wipes and slides; best for short, punchy promos.
+- `--transition 0.3`: a good starting transition duration. Keep it short so the interface stays readable.
+
+For an energetic cut, try `--transition-style energetic --transition 0.25`. If your local FFmpeg build reports an unsupported transition, switch to `--transition-style clean`.
+
+### Add an energetic soundtrack
+
+Download a track whose license allows your intended use (for example, an instrumental electronic, upbeat, or cinematic track from [Mixkit's free music library](https://mixkit.co/free-stock-music/) or [Pixabay Music](https://pixabay.com/music/)). Check the specific track's license and keep a copy of its license/attribution details with your project. Do not use commercial chart music unless you have permission.
+
+Place the downloaded file somewhere such as `assets/music/promo-track.mp3`, then run:
 
 ```bash
-python scripts/validate_video.py brag-output/malihub-website-film.mp4
-xdg-open brag-output/malihub-website-film.mp4
+python scripts/add_music.py brag-output/malihub-website-film.mp4 \
+  --music assets/music/promo-track.mp3 \
+  --output brag-output/malihub-website-film-music.mp4 \
+  --volume 0.22 --fade 1.5
 ```
 
-Useful render options:
+The music mixer keeps the original video stream without re-encoding it, loops shorter tracks as needed, trims the soundtrack to the video duration, and applies gentle fade-in and fade-out. Adjust `--volume` between `0.0` and `1.0`; around `0.18`–`0.28` is a useful starting point for background music.
+
+Validate and play the final version:
+
+```bash
+python scripts/validate_video.py brag-output/malihub-website-film-music.mp4
+xdg-open brag-output/malihub-website-film-music.mp4
+```
+
+Useful renderer options:
 
 ```bash
 python scripts/render_website.py --help
+python scripts/add_music.py --help
 ```
 
-- --duration 30 to --duration 60
-- --width 1280 --height 720 for a practical low-memory default
-- --accent '#D68A52' for the caption accent color
-- --transition 0 to disable crossfades if the local FFmpeg build has a filter issue
+- `--duration 30` to `--duration 60`
+- `--width 1280 --height 720` for a higher-resolution render; use `640x360` for a quick low-load test
+- `--accent '#D68A52'` for the caption accent color
+- `--transition 0` to disable crossfades if the local FFmpeg build has a filter issue
 
 Use only pages and media you are authorized to capture. Do not capture account dashboards containing customer data, private messages, access tokens, or other sensitive information. For a public product demo, prefer public pages and test accounts with dummy data. Browser capture is not a substitute for recording actual interactive user flows; the current capture script scrolls a page and captures viewport frames.
 
@@ -81,11 +114,11 @@ python scripts/render.py examples/malihub-30s.json --output brag-output/motionbr
 python scripts/validate_video.py brag-output/motionbrag.mp4
 ```
 
-This remains available for simple typography-based videos. Website promos use the separate capture_site.py and render_website.py pipeline.
+This remains available for simple typography-based videos. Website promos use the separate `capture_site.py` and `render_website.py` pipeline.
 
 ## Skill installation
 
-The skill instructions live in SKILL.md. Copy the skill directory into the skills location supported by your agent, or ask the agent to use this repository's SKILL.md. Skill discovery paths vary by agent.
+The skill instructions live in `SKILL.md`. Copy the skill directory into the skills location supported by your agent, or ask the agent to use this repository's `SKILL.md`. Skill discovery paths vary by agent.
 
 ## Project status
 

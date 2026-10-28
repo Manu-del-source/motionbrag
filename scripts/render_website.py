@@ -100,7 +100,11 @@ def main() -> int:
     parser.add_argument("--height", type=int, default=720)
     parser.add_argument("--fps", type=int, default=30)
     parser.add_argument("--accent", default="#D68A52", help="Caption accent color, e.g. #D68A52")
-    parser.add_argument("--transition", type=float, default=0.4, help="Crossfade duration in seconds")
+    parser.add_argument("--transition", type=float, default=0.4, help="Transition duration in seconds")
+    parser.add_argument("--motion-style", choices=("cinematic", "subtle", "static"), default="cinematic",
+                        help="Camera movement preset (default: cinematic)")
+    parser.add_argument("--transition-style", choices=("cinematic", "clean", "energetic"), default="cinematic",
+                        help="Transition preset (default: cinematic)")
     parser.add_argument("--preview", action="store_true", help="Render a fast preview with optimized speed and resolution")
     parser.add_argument("--preview-duration", type=float, default=12.0, help="Duration for --preview mode in seconds")
     args = parser.parse_args()
@@ -185,21 +189,48 @@ def main() -> int:
                     f"{actual_clip_seconds:.6f}", "-i", str(frame)]
 
         filters = []
+        # Vary the camera move per scene so the film feels edited rather than like
+        # one repeated zoom. Expressions stay intentionally modest for website text.
+        motion_moves = [
+            ("min(1.0+0.00045*on,1.055)", "(iw-iw/zoom)*min(on/%d,1)*0.72" % frames_per_clip,
+             "(ih-ih/zoom)*0.18"),
+            ("min(1.0+0.00045*on,1.055)", "(iw-iw/zoom)*(1-min(on/%d,1)*0.72)" % frames_per_clip,
+             "(ih-ih/zoom)*0.78"),
+            ("max(1.055-0.00045*on,1.0)", "(iw-iw/zoom)*(0.78-min(on/%d,1)*0.62)" % frames_per_clip,
+             "(ih-ih/zoom)*0.22"),
+            ("min(1.0+0.00045*on,1.055)", "(iw-iw/zoom)*0.48",
+             "(ih-ih/zoom)*(1-min(on/%d,1)*0.58)" % frames_per_clip),
+        ]
         for i in range(len(prepared)):
+            if args.motion_style == "static":
+                zoom, xpos, ypos = ("1.0", "iw/2-(iw/zoom/2)", "ih/2-(ih/zoom/2)")
+            elif args.motion_style == "subtle":
+                zoom, xpos, ypos = ("min(zoom+0.00020,1.035)",
+                                    "iw/2-(iw/zoom/2)", "ih/2-(ih/zoom/2)")
+            else:
+                zoom, xpos, ypos = motion_moves[i % len(motion_moves)]
             filters.append(
-                f"[{i}:v]zoompan=z='min(zoom+0.00030,1.055)':d=1:"
-                f"x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':"
+                f"[{i}:v]zoompan=z='{zoom}':d=1:x='{xpos}':y='{ypos}':"
                 f"s={args.width}x{args.height}:fps={args.fps},"
                 f"trim=end_frame={frames_per_clip},setpts=PTS-STARTPTS,settb=AVTB,"
                 f"format=yuv420p[v{i}]"
             )
+
+        if args.transition_style == "clean":
+            transition_names = ["fade"]
+        elif args.transition_style == "energetic":
+            transition_names = ["wipeleft", "slideright", "wipeup", "fade", "wipedown"]
+        else:
+            transition_names = ["fade", "smoothleft", "slideright", "fadeblack"]
+
         current = "v0"
         elapsed = actual_clip_seconds
         for i in range(1, len(prepared)):
             offset = max(0.0, elapsed - actual_transition)
             out_label = f"x{i}"
+            transition_name = transition_names[(i - 1) % len(transition_names)]
             filters.append(
-                f"[{current}][v{i}]xfade=transition=fade:duration={actual_transition:.6f}:"
+                f"[{current}][v{i}]xfade=transition={transition_name}:duration={actual_transition:.6f}:"
                 f"offset={offset:.6f}[{out_label}]"
             )
             current = out_label
