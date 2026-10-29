@@ -476,7 +476,7 @@ def main() -> int:
                     vf = (f"zoompan=z='1.05':d=1:x='iw/2-(iw/zoom/2)+8*sin(on*2.5)':"
                           f"y='ih/2-(ih/zoom/2)+6*sin(on*3.1)':s={width}x{height}:fps={fps},format=yuv420p")
                 elif effect == "glitch":
-                    vf += ",rgbashift=rh=4:bh=-4"
+                    vf += ",rgbashift=rh=1:bh=-1"
                 elif effect == "pulse":
                     vf += ",eq=brightness='0.05+0.05*sin(2*PI*t)'"
                 elif effect == "flash":
