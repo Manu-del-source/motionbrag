@@ -56,10 +56,27 @@ def wrap_text(draw: ImageDraw.ImageDraw, text: str, face: Any, max_width: int) -
     return lines or [""]
 
 
+def cover_fit(img: Image.Image, width: int, height: int) -> Image.Image:
+    scale = max(width / img.width, height / img.height)
+    img = img.resize((max(1, int(img.width * scale + 0.5)), max(1, int(img.height * scale + 0.5))), Image.LANCZOS)
+    left = (img.width - width) // 2
+    top = (img.height - height) // 2
+    return img.crop((left, top, left + width, top + height))
+
+
 def draw_scene(path: Path, width: int, height: int, title: str, subtitle: str,
                brand: tuple[int, int, int], background: tuple[int, int, int],
-               index: int, total: int) -> None:
+               index: int, total: int, image_path: Path | None = None,
+               logo_path: Path | None = None) -> None:
     image = Image.new("RGB", (width, height), background)
+
+    # Optional per-scene background image: cover-fit, darkened so type stays readable.
+    if image_path and Path(image_path).is_file():
+        bg = Image.open(image_path).convert("RGB")
+        bg = cover_fit(bg, width, height)
+        bg = Image.blend(bg, Image.new("RGB", bg.size, (0, 0, 0)), 0.45)
+        image.paste(bg, (0, 0))
+
     draw = ImageDraw.Draw(image, "RGBA")
 
     # Soft brand glows and geometric framing, kept intentionally subtle.
@@ -108,6 +125,14 @@ def draw_scene(path: Path, width: int, height: int, title: str, subtitle: str,
                            fill=(255, 255, 255, 55))
     draw.rounded_rectangle((margin, bar_y, margin + int(bar_w * (index + 1) / total), bar_y + 5),
                            radius=2, fill=(*brand, 255))
+    # Optional logo, top-right, scaled to ~8% of height.
+    if logo_path and Path(logo_path).is_file():
+        logo = Image.open(logo_path).convert("RGBA")
+        lh = max(1, int(height * 0.08))
+        lw = max(1, int(logo.width * lh / logo.height))
+        logo = logo.resize((lw, lh), Image.LANCZOS)
+        image.paste(logo, (width - lw - margin, margin), logo)
+
     image.convert("RGB").save(path, quality=95)
 
 
@@ -153,6 +178,10 @@ def main() -> int:
     total_weight = sum(scene_weights)
     durations = [target_duration * w / total_weight for w in scene_weights]
     durations[-1] += target_duration - sum(durations)
+    _trans = str(brief.get("transition", "none")).lower()
+    _td = float(brief.get("transition_duration", 0.5)) if _trans in ("fade", "crossfade") else 0.0
+    if _td > 0:
+        durations = [d + _td for d in durations[:-1]] + [durations[-1]]
 
     brand = hex_rgb(brief.get("brand_color", "#D68A52"), (214, 138, 82))
     background = hex_rgb(brief.get("background_color", "#101014"), (16, 16, 20))
@@ -166,7 +195,9 @@ def main() -> int:
             draw_scene(image_path, width, height,
                        str(scene.get("title") or brief.get("title") or "A new idea"),
                        str(scene.get("subtitle") or brief.get("tagline") or ""),
-                       brand, background, index, len(scenes))
+                       brand, background, index, len(scenes),
+                       image_path=(Path(str(scene["image"])) if scene.get("image") else None),
+                       logo_path=(Path(str(brief["logo"])) if brief.get("logo") else None))
             clip_path = temp / f"clip-{index:03d}.mp4"
             frames = max(1, round(duration * fps))
             # A subtle zoom gives the typography cards movement without heavy compositing.
@@ -183,6 +214,30 @@ def main() -> int:
                 print(f"ERROR rendering scene {index + 1}:\n{result.stderr}", file=sys.stderr)
                 return 1
             clip_paths.append(clip_path)
+
+        # Optional crossfade transitions between scenes. Each scene except the last
+        # is rendered with an extra transition_duration of tail so the final cut
+        # still lands on the target duration.
+        transition = str(brief.get("transition", "none")).lower()
+        transition_duration = float(brief.get("transition_duration", 0.5))
+        if transition in ("fade", "crossfade") and len(clip_paths) > 1 and transition_duration > 0:
+            chained = clip_paths[0]
+            prev_out_dur = durations[0]
+            for i, nxt in enumerate(clip_paths[1:]):
+                out_path = temp / f"x{i:03d}.mp4"
+                offset = max(0.0, prev_out_dur - transition_duration)
+                xargs = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+                         "-i", str(chained), "-i", str(nxt), "-filter_complex",
+                         f"[0:v][1:v]xfade=transition=fade:duration={transition_duration:.3f}:offset={offset:.3f}[v]",
+                         "-map", "[v]", "-an", "-c:v", "libx264", "-preset", args.preset,
+                         "-crf", "23", str(out_path)]
+                result = subprocess.run(xargs, text=True, capture_output=True)
+                if result.returncode:
+                    print(f"ERROR applying transition {i + 1}:\n{result.stderr}", file=sys.stderr)
+                    return 1
+                prev_out_dur = offset + durations[i + 1] + (transition_duration if i + 1 < len(clip_paths) - 1 else 0)
+                chained = out_path
+            clip_paths = [chained]
 
         concat_file = temp / "concat.txt"
         concat_file.write_text("".join(f"file '{p.as_posix()}'\n" for p in clip_paths), encoding="utf-8")
