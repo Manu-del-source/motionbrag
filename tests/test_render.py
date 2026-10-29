@@ -89,8 +89,37 @@ class ParseBriefTests(unittest.TestCase):
         with self.assertRaises(render.BriefError):
             render.parse_brief(base_brief(brand_color=123))
 
+    def test_editing_fields_are_normalized_and_default_to_legacy(self):
+        legacy = render.parse_brief(base_brief())
+        self.assertFalse(legacy["editing_enabled"])
+        self.assertEqual(legacy["transition"], "none")
+        self.assertEqual(legacy["title_animation"], "none")
+        edited = render.parse_brief(base_brief(
+            transition="crossfade", transition_style="wipe_left", transition_duration=0.4,
+            title_animation="slide_up", effect="pulse", keyframe_zoom={"from": 1, "to": 1.1},
+            speed_ramp="ease_in_out", beat_sync_bpm=120, captions=True,
+            logo="logo.png", overlays=[{"image": "sticker.png", "opacity": 0.5}],
+            scenes=[{"title": "a", "duration": 15, "image": "scene.png", "caption": "hello"},
+                    {"title": "b", "duration": 15}],
+        ))
+        self.assertTrue(edited["editing_enabled"])
+        self.assertEqual(edited["transition_style"], "wipe_left")
+        self.assertEqual(edited["beat_sync_bpm"], 120)
 
-class HelperTests(unittest.TestCase):
+    def test_invalid_editing_fields_are_rejected(self):
+        bad_fields = (
+            {"transition": "zoom"}, {"transition_duration": -1},
+            {"transition_style": "spin"}, {"title_animation": "bounce"},
+            {"effect": "explode"}, {"keyframe_zoom": {"from": 0.5, "to": 1.1}},
+            {"speed_ramp": "random"}, {"beat_sync_bpm": 500},
+            {"captions": "yes"}, {"overlays": "sticker.png"},
+            {"scenes": [{"title": "x", "duration": 30, "effect": "explode"}]},
+        )
+        for fields in bad_fields:
+            with self.subTest(fields=fields), self.assertRaises(render.BriefError):
+                render.parse_brief(base_brief(**fields))
+
+
     def test_durations_sum_to_target(self):
         durations = render.scene_durations([{"duration": 5}, {"duration": 7}, {"duration": 7}], 30)
         self.assertAlmostEqual(sum(durations), 30.0, places=9)

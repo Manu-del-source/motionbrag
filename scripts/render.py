@@ -126,14 +126,100 @@ def parse_brief(brief: Any) -> dict[str, Any]:
         if key in brief and brief[key] is not None and not isinstance(brief[key], str):
             raise BriefError(f"'{key}' must be a string")
 
+    transition = brief.get("transition", "none")
+    if not isinstance(transition, str) or transition.lower() not in ("none", "fade", "crossfade"):
+        raise BriefError("'transition' must be none, fade, or crossfade")
+    transition = transition.lower()
+    transition_duration = _number(brief.get("transition_duration", 0.5), "transition_duration")
+    if not 0 <= transition_duration <= 3:
+        raise BriefError("'transition_duration' must be between 0 and 3 seconds")
+    transition_style = brief.get("transition_style", "fade")
+    styles = {"fade": "fade", "wipe": "wipe", "wipe_left": "wipe_left", "wipe_right": "wipe_right",
+              "slide": "slide", "slide_left": "slide_left", "slide_right": "slide_right"}
+    if not isinstance(transition_style, str) or transition_style.lower() not in styles:
+        raise BriefError("'transition_style' must be fade, wipe, wipe_left, wipe_right, slide, slide_left, or slide_right")
+    transition_style = transition_style.lower()
+
+    title_animation = brief.get("title_animation", "none")
+    if not isinstance(title_animation, str) or title_animation.lower() not in ("none", "fade", "slide_up"):
+        raise BriefError("'title_animation' must be none, fade, or slide_up")
+    title_animation = title_animation.lower()
+    allowed_effects = ("none", "shake", "glitch", "pulse", "flash")
+    effect = brief.get("effect", "none")
+    if not isinstance(effect, str) or effect.lower() not in allowed_effects:
+        raise BriefError("'effect' must be none, shake, glitch, pulse, or flash")
+    effect = effect.lower()
+    for index, scene in enumerate(scenes, start=1):
+        if "effect" in scene and (not isinstance(scene["effect"], str) or scene["effect"].lower() not in allowed_effects):
+            raise BriefError(f"scene {index} 'effect' must be none, shake, glitch, pulse, or flash")
+        for key in ("image", "caption"):
+            if key in scene and scene[key] is not None and not isinstance(scene[key], str):
+                raise BriefError(f"scene {index} '{key}' must be a string")
+        if "overlays" in scene:
+            if not isinstance(scene["overlays"], list):
+                raise BriefError(f"scene {index} 'overlays' must be an array")
+            for overlay in scene["overlays"]:
+                if not isinstance(overlay, dict):
+                    raise BriefError(f"scene {index} overlays must contain objects")
+                if "image" in overlay and not isinstance(overlay["image"], str):
+                    raise BriefError(f"scene {index} overlay 'image' must be a string path")
+                for key in ("x", "y", "width", "opacity"):
+                    if key in overlay:
+                        value = _number(overlay[key], f"scene {index} overlay.{key}")
+                        if not 0 <= value <= 1:
+                            raise BriefError(f"scene {index} overlay '{key}' must be between 0 and 1")
+
+    zoom = brief.get("keyframe_zoom")
+    if zoom is not None:
+        if not isinstance(zoom, dict):
+            raise BriefError("'keyframe_zoom' must be an object with from/to values")
+        zfrom = _number(zoom.get("from", 1.0), "keyframe_zoom.from")
+        zto = _number(zoom.get("to", 1.05), "keyframe_zoom.to")
+        if not 1 <= zfrom <= 1.2 or not 1 <= zto <= 1.2:
+            raise BriefError("keyframe zoom values must be between 1.0 and 1.2")
+        zoom = {"from": zfrom, "to": zto}
+    speed_ramp = brief.get("speed_ramp", "none")
+    if not isinstance(speed_ramp, str) or speed_ramp.lower() not in ("none", "ease_in_out"):
+        raise BriefError("'speed_ramp' must be none or ease_in_out")
+    speed_ramp = speed_ramp.lower()
+    bpm = _number(brief.get("beat_sync_bpm", 0), "beat_sync_bpm")
+    if bpm != 0 and not 30 <= bpm <= 240:
+        raise BriefError("'beat_sync_bpm' must be 0 or between 30 and 240")
+    captions = brief.get("captions", False)
+    if not isinstance(captions, bool):
+        raise BriefError("'captions' must be a boolean")
+    for key in ("logo",):
+        if key in brief and brief[key] is not None and not isinstance(brief[key], str):
+            raise BriefError(f"'{key}' must be a string path")
+    overlays = brief.get("overlays", [])
+    if not isinstance(overlays, list):
+        raise BriefError("'overlays' must be an array")
+    for overlay in overlays:
+        if not isinstance(overlay, dict):
+            raise BriefError("each overlay must be an object")
+        if "image" in overlay and not isinstance(overlay["image"], str):
+            raise BriefError("overlay 'image' must be a string path")
+        for key, default, low, high in (("x", 0.82, 0, 1), ("y", 0.76, 0, 1),
+                                        ("width", 0.12, 0, 1), ("opacity", 1, 0, 1)):
+            if key in overlay:
+                value = _number(overlay[key], f"overlay.{key}")
+                if not low <= value <= high:
+                    raise BriefError(f"overlay '{key}' must be between {low} and {high}")
+
+    editing_enabled = bool(transition != "none" or title_animation != "none" or effect != "none" or
+                           any(s.get("effect", "none") != "none" for s in scenes) or zoom is not None or
+                           speed_ramp != "none" or bpm or captions or brief.get("logo") or overlays or
+                           any(s.get("image") or s.get("caption") or s.get("overlays") for s in scenes))
     return {
-        "width": width,
-        "height": height,
-        "fps": fps,
-        "scenes": scenes,
+        "width": width, "height": height, "fps": fps, "scenes": scenes,
         "duration": target_duration,
         "brand": hex_rgb(brief.get("brand_color") or "#D68A52", (214, 138, 82)),
         "background": hex_rgb(brief.get("background_color") or "#101014", (16, 16, 20)),
+        "transition": transition, "transition_duration": transition_duration,
+        "transition_style": transition_style, "title_animation": title_animation,
+        "effect": effect, "keyframe_zoom": zoom, "speed_ramp": speed_ramp,
+        "beat_sync_bpm": bpm, "captions": captions, "overlays": overlays,
+        "logo": brief.get("logo"), "editing_enabled": editing_enabled,
     }
 
 
@@ -172,10 +258,29 @@ def probe_has_audio(path: Path) -> bool:
 
 
 
+def cover_fit(img: Image.Image, width: int, height: int) -> Image.Image:
+    scale = max(width / img.width, height / img.height)
+    img = img.resize((max(1, int(img.width * scale + 0.5)), max(1, int(img.height * scale + 0.5))), Image.LANCZOS)
+    left = (img.width - width) // 2
+    top = (img.height - height) // 2
+    return img.crop((left, top, left + width, top + height))
+
+
 def draw_scene(path: Path, width: int, height: int, title: str, subtitle: str,
                brand: tuple[int, int, int], background: tuple[int, int, int],
-               index: int, total: int) -> None:
+               index: int, total: int, image_path: Path | None = None,
+               logo_path: Path | None = None,
+               overlays: list[dict[str, Any]] | None = None,
+               caption: str = "") -> None:
     image = Image.new("RGB", (width, height), background)
+
+    # Optional per-scene background image: cover-fit, darkened so type stays readable.
+    if image_path and Path(image_path).is_file():
+        bg = Image.open(image_path).convert("RGB")
+        bg = cover_fit(bg, width, height)
+        bg = Image.blend(bg, Image.new("RGB", bg.size, (0, 0, 0)), 0.45)
+        image.paste(bg, (0, 0))
+
     draw = ImageDraw.Draw(image, "RGBA")
 
     # Soft brand glows and geometric framing, kept intentionally subtle.
@@ -224,6 +329,45 @@ def draw_scene(path: Path, width: int, height: int, title: str, subtitle: str,
                            fill=(255, 255, 255, 55))
     draw.rounded_rectangle((margin, bar_y, margin + int(bar_w * (index + 1) / total), bar_y + 5),
                            radius=2, fill=(*brand, 255))
+    # Optional logo, top-right, scaled to ~8% of height.
+    if logo_path and Path(logo_path).is_file():
+        logo = Image.open(logo_path).convert("RGBA")
+        lh = max(1, int(height * 0.08))
+        lw = max(1, int(logo.width * lh / logo.height))
+        logo = logo.resize((lw, lh), Image.LANCZOS)
+        image.paste(logo, (width - lw - margin, margin), logo)
+
+    # Optional user-supplied overlays/stickers. Coordinates and width are frame fractions.
+    for item in overlays or []:
+        sticker_path = Path(str(item.get("image", "")))
+        if not sticker_path.is_file():
+            continue
+        sticker = Image.open(sticker_path).convert("RGBA")
+        sticker_width = max(1, int(width * float(item.get("width", 0.12))))
+        sticker_height = max(1, int(sticker.height * sticker_width / sticker.width))
+        sticker = sticker.resize((sticker_width, sticker_height), Image.LANCZOS)
+        opacity = max(0.0, min(1.0, float(item.get("opacity", 1.0))))
+        if opacity < 1:
+            alpha = sticker.getchannel("A").point(lambda value: int(value * opacity))
+            sticker.putalpha(alpha)
+        x = int(width * float(item.get("x", 0.82)))
+        y = int(height * float(item.get("y", 0.76)))
+        image.paste(sticker, (x, y), sticker)
+
+    # Captions are supplied per scene, not inferred with an external speech model.
+    if caption:
+        caption_face = font(max(18, int(height * 0.032)), True)
+        caption_lines = wrap_text(draw, caption, caption_face, int(width * 0.84))
+        caption_y = height - int(height * 0.22) - len(caption_lines) * int(height * 0.045)
+        for line in caption_lines:
+            bbox = draw.textbbox((0, 0), line, font=caption_face)
+            tw = bbox[2] - bbox[0]
+            tx = (width - tw) // 2
+            draw.rounded_rectangle((tx - 16, caption_y - 7, tx + tw + 16, caption_y + bbox[3] + 7),
+                                   radius=8, fill=(0, 0, 0, 170))
+            draw.text((tx, caption_y), line, font=caption_face, fill=(255, 255, 255, 255))
+            caption_y += int(height * 0.045)
+
     image.convert("RGB").save(path, quality=95)
 
 def main() -> int:
@@ -266,6 +410,26 @@ def main() -> int:
     target_duration = settings["duration"]
     durations = scene_durations(scenes, target_duration)
     brand, background = settings["brand"], settings["background"]
+    # Validate and normalize optional editing controls here so missing values stay inert.
+    transition = settings["transition"]
+    transition_duration = settings["transition_duration"]
+    transition_style = settings["transition_style"]
+    bpm = settings["beat_sync_bpm"]
+    if bpm > 0 and len(durations) > 1:
+        beat = 60.0 / bpm
+        min_gap = max(0.5, beat * 0.5)
+        snapped = [0.0]
+        elapsed = 0.0
+        for boundary in durations[:-1]:
+            elapsed += boundary
+            candidate = round(elapsed / beat) * beat
+            lower = snapped[-1] + min_gap
+            upper = target_duration - min_gap * (len(durations) - len(snapped))
+            snapped.append(min(max(candidate, lower), upper))
+        snapped.append(target_duration)
+        durations = [snapped[i + 1] - snapped[i] for i in range(len(snapped) - 1)]
+    if transition in ("fade", "crossfade") and transition_duration > 0:
+        durations = [d + transition_duration for d in durations[:-1]] + [durations[-1]]
 
     try:
         if args.music and not probe_has_audio(args.music):
@@ -280,20 +444,76 @@ def main() -> int:
                 draw_scene(image_path, width, height,
                            str(scene.get("title") or raw.get("title") or "A new idea"),
                            str(scene.get("subtitle") or raw.get("tagline") or ""),
-                           brand, background, index, len(scenes))
+                           brand, background, index, len(scenes),
+                           image_path=Path(scene["image"]) if scene.get("image") else None,
+                           logo_path=Path(raw["logo"]) if raw.get("logo") else None,
+                           overlays=scene.get("overlays", raw.get("overlays", [])),
+                           caption=str(scene.get("caption", "") if raw.get("captions", False) else ""))
                 clip_path = temp / f"clip-{index:03d}.mp4"
                 frames = max(1, round(duration * fps))
-                # A subtle zoom gives the typography cards movement without heavy compositing.
+                # No new settings means the PR #5 filter, quality, and encode path remain unchanged.
                 vf = (f"zoompan=z='min(zoom+0.00035,1.035)':d=1:"
                       f"x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':"
                       f"s={width}x{height}:fps={fps},format=yuv420p")
+                title_animation = settings["title_animation"]
+                effect = scene.get("effect", settings["effect"])
+                zoom = settings["keyframe_zoom"]
+                if title_animation == "fade":
+                    vf += ",fade=t=in:st=0:d=0.45"
+                elif title_animation == "slide_up":
+                    vf = (f"zoompan=z='1.035':d=1:x='iw/2-(iw/zoom/2)':"
+                          f"y='max(0,ih/2-(ih/zoom/2)+60*(1-min(on/({frames}*0.35),1)))':"
+                          f"s={width}x{height}:fps={fps},format=yuv420p")
+                if zoom is not None:
+                    z0, z1 = zoom["from"], zoom["to"]
+                    progress = f"on/{max(1, frames - 1)}"
+                    if settings["speed_ramp"] == "ease_in_out":
+                        progress = f"({progress})*({progress})*(3-2*({progress}))"
+                    vf = (f"zoompan=z='{z0:.4f}+({z1-z0:.4f})*{progress}':d=1:"
+                          f"x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':"
+                          f"s={width}x{height}:fps={fps},format=yuv420p")
+                if effect == "shake":
+                    vf = (f"zoompan=z='1.05':d=1:x='iw/2-(iw/zoom/2)+8*sin(on*2.5)':"
+                          f"y='ih/2-(ih/zoom/2)+6*sin(on*3.1)':s={width}x{height}:fps={fps},format=yuv420p")
+                elif effect == "glitch":
+                    vf += ",rgbashift=rh=4:bh=-4"
+                elif effect == "pulse":
+                    vf += ",eq=brightness='0.05+0.05*sin(2*PI*t)'"
+                elif effect == "flash":
+                    vf += ",eq=brightness='if(lt(mod(t,2),0.08),0.35,0)'"
+                if bpm > 0:
+                    period = 60.0 / bpm
+                    vf += f",eq=brightness='0.04+0.04*sin(2*PI*t/{period:.5f})'"
                 cmd = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
                        "-loop", "1", "-framerate", str(fps), "-i", str(image_path),
                        "-vf", vf, "-frames:v", str(frames), "-an",
-                       "-c:v", "libx264", "-preset", args.preset, "-crf", str(args.crf),
-                       "-tune", "stillimage", "-pix_fmt", "yuv420p", str(clip_path)]
+                       "-c:v", "libx264", "-preset", args.preset,
+                       "-crf", str(args.crf if not settings["editing_enabled"] else 23)]
+                if not settings["editing_enabled"]:
+                    cmd.extend(["-tune", "stillimage", "-pix_fmt", "yuv420p"])
+                cmd.append(str(clip_path))
                 run_ffmpeg(cmd, f"rendering scene {index + 1}")
                 clip_paths.append(clip_path)
+
+            if transition in ("fade", "crossfade") and len(clip_paths) > 1 and transition_duration > 0:
+                transition_map = {"fade": "fade", "wipe_left": "wipeleft", "wipe_right": "wiperight",
+                                  "slide_left": "slideleft", "slide_right": "slideright",
+                                  "wipe": "wipeleft", "slide": "slideleft"}
+                transition_filter = transition_map[transition_style]
+                chained = clip_paths[0]
+                prev_out_dur = durations[0]
+                for i, nxt in enumerate(clip_paths[1:]):
+                    out_path = temp / f"x{i:03d}.mp4"
+                    offset = max(0.0, prev_out_dur - transition_duration)
+                    xargs = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+                             "-i", str(chained), "-i", str(nxt), "-filter_complex",
+                             f"[0:v][1:v]xfade=transition={transition_filter}:duration={transition_duration:.3f}:offset={offset:.3f}[v]",
+                             "-map", "[v]", "-an", "-c:v", "libx264", "-preset", args.preset,
+                             "-crf", "23", str(out_path)]
+                    run_ffmpeg(xargs, f"applying transition {i + 1}")
+                    prev_out_dur = offset + durations[i + 1]
+                    chained = out_path
+                clip_paths = [chained]
 
             concat_file = temp / "concat.txt"
             concat_file.write_text("".join(f"file {ffmpeg_quote_path(p)}\n" for p in clip_paths),
