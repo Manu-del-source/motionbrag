@@ -235,7 +235,7 @@ def main() -> int:
                 if result.returncode:
                     print(f"ERROR applying transition {i + 1}:\n{result.stderr}", file=sys.stderr)
                     return 1
-                prev_out_dur = offset + durations[i + 1] + (transition_duration if i + 1 < len(clip_paths) - 1 else 0)
+                prev_out_dur = offset + durations[i + 1]
                 chained = out_path
             clip_paths = [chained]
 
