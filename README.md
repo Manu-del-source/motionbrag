@@ -1,61 +1,120 @@
 # MotionBrag
 
-MotionBrag is an original AI-agent skill inspired by the workflow of BRAG-SLIM. It helps compatible coding agents plan and produce edited 30–60 second promotional videos from websites, local projects, screenshots, and supplied media.
+MotionBrag is an original AI-agent skill inspired by the workflow of BRAG-SLIM. It turns real website interfaces into short promotional films using browser capture, camera motion, editorial captions, transitions, and FFmpeg.
 
-The repository is an independent implementation; it does not include or copy BRAG's source code.
+This repository is an independent implementation and does not include or copy BRAG's source code.
 
-## What it aims to do
+## Current capabilities
 
-- Turn a short brief into a timed storyboard.
-- Use genuine website/product captures where available.
-- Create motion-led title cards and product scenes.
-- Render MP4 with FFmpeg and optionally mix licensed music.
-- Validate duration, dimensions, codecs, and playback.
+- Capture a sequence of real website viewport screenshots with Playwright.
+- Scroll pages to reveal content below the fold, including lazy-loaded sections.
+- Render screenshots as motion-led video scenes with camera zooms, captions, progress marks, and crossfades.
+- Add a licensed soundtrack after rendering, with adjustable volume and fade-in/fade-out.
+- Automatically select an encoder available in the local FFmpeg build (libx264, libopenh264, or mpeg4).
+- Validate duration, dimensions, frame rate, codecs, and complete video decoding.
+- Keep the typography-only renderer as a separate mode.
 
 ## Requirements
 
 - Python 3.10+
-- FFmpeg and ffprobe
-- Pillow (install with `python -m pip install -r requirements.txt`)
-- Optional: Playwright for browser capture, plus its browser installation; optional TTS software for narration.
+- FFmpeg with ffprobe
+- Pillow and Playwright (installed from requirements.txt)
+- Chromium for Playwright
 
-On Fedora, install FFmpeg from your enabled repositories (RPM Fusion may be needed), then verify with `ffmpeg -version` and `ffprobe -version`.
+On Fedora, use your enabled FFmpeg repositories and check `ffmpeg -version`. Some Fedora builds omit encoders such as libx264; the website renderer detects libopenh264 as a fallback when available.
 
-## Quick start
+## Setup on Fedora
 
-Create a JSON brief:
-
-```json
-{
-  "title": "Meet MaliHub",
-  "tagline": "A better way to discover local fashion",
-  "call_to_action": "Explore MaliHub",
-  "duration": 30,
-  "width": 1280,
-  "height": 720,
-  "fps": 30,
-  "brand_color": "#D68A52",
-  "background_color": "#101014",
-  "scenes": [
-    {"title": "Discover something different", "subtitle": "Style starts with discovery", "duration": 5},
-    {"title": "Explore the marketplace", "subtitle": "Browse products in one place", "duration": 7},
-    {"title": "Find your next favourite", "subtitle": "A simple shopping experience", "duration": 7},
-    {"title": "Your style. Your choice.", "subtitle": "Discover MaliHub today", "duration": 6}
-  ]
-}
-```
-
-Save it as `brief.json`, then run:
+From the repository root:
 
 ```bash
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-python scripts/render.py brief.json --output brag-output/motionbrag.mp4
+python -m playwright install chromium
+```
+
+If Playwright reports missing operating-system libraries, follow the dependency instructions printed by `python -m playwright install --with-deps chromium` only if supported by your distribution, or install the missing Fedora packages through DNF.
+
+## Create a website promo
+
+Capture a public website. Example:
+
+```bash
+python scripts/capture_site.py https://malihub.smartbiz365.site/ \
+  --output-dir brag-output/malihub-capture \
+  --shots 6
+```
+
+The capture folder contains `shot-01.png`, `shot-02.png`, etc. and a `manifest.json`. Review the screenshots before rendering. Captures may include cookie notices or other overlays shown by the site.
+
+Render a 30–60-second film. For a sharper promo on a modest machine, start at 1280×720 and 24 fps:
+
+```bash
+python scripts/render_website.py brag-output/malihub-capture/manifest.json \
+  --output brag-output/malihub-website-film.mp4 \
+  --duration 30 --width 1280 --height 720 --fps 24 \
+  --motion-style cinematic --transition-style cinematic
+```
+
+### Camera movement and transitions
+
+The website renderer varies slow zooms and pans across scenes, then alternates restrained transitions so the film does not feel like a static slideshow.
+
+- `--motion-style cinematic`: alternating push-ins, pull-backs, and directional pans.
+- `--motion-style subtle`: gentler centered zooms for text-heavy screens.
+- `--motion-style static`: no intentional camera movement.
+- `--transition-style cinematic`: a restrained mix of fades and directional transitions.
+- `--transition-style clean`: crossfades only.
+- `--transition-style energetic`: stronger wipes and slides; best for short, punchy promos.
+- `--transition 0.3`: a good starting transition duration. Keep it short so the interface stays readable.
+
+For an energetic cut, try `--transition-style energetic --transition 0.25`. If your local FFmpeg build reports an unsupported transition, switch to `--transition-style clean`.
+
+### Add an energetic soundtrack
+
+Download a track whose license allows your intended use (for example, an instrumental electronic, upbeat, or cinematic track from [Mixkit's free music library](https://mixkit.co/free-stock-music/) or [Pixabay Music](https://pixabay.com/music/)). Check the specific track's license and keep a copy of its license/attribution details with your project. Do not use commercial chart music unless you have permission.
+
+Place the downloaded file somewhere such as `assets/music/promo-track.mp3`, then run:
+
+```bash
+python scripts/add_music.py brag-output/malihub-website-film.mp4 \
+  --music assets/music/promo-track.mp3 \
+  --output brag-output/malihub-website-film-music.mp4 \
+  --volume 0.22 --fade 1.5
+```
+
+The music mixer keeps the original video stream without re-encoding it, loops shorter tracks as needed, trims the soundtrack to the video duration, and applies gentle fade-in and fade-out. Adjust `--volume` between `0.0` and `1.0`; around `0.18`–`0.28` is a useful starting point for background music.
+
+Validate and play the final version:
+
+```bash
+python scripts/validate_video.py brag-output/malihub-website-film-music.mp4
+xdg-open brag-output/malihub-website-film-music.mp4
+```
+
+Useful renderer options:
+
+```bash
+python scripts/render_website.py --help
+python scripts/add_music.py --help
+```
+
+- `--duration 30` to `--duration 60`
+- `--width 1280 --height 720` for a higher-resolution render; use `640x360` for a quick low-load test
+- `--accent '#D68A52'` for the caption accent color
+- `--transition 0` to disable crossfades if the local FFmpeg build has a filter issue
+
+Use only pages and media you are authorized to capture. Do not capture account dashboards containing customer data, private messages, access tokens, or other sensitive information. For a public product demo, prefer public pages and test accounts with dummy data. Browser capture is not a substitute for recording actual interactive user flows; the current capture script scrolls a page and captures viewport frames.
+
+## Existing typography renderer
+
+```bash
+python scripts/render.py examples/malihub-30s.json --output brag-output/motionbrag.mp4
 python scripts/validate_video.py brag-output/motionbrag.mp4
 ```
 
-The renderer creates animated typography scenes as a starter pipeline. For a real product promo, use the skill workflow to capture product screens, replace or supplement title cards with those visuals, add intentional transitions, and use only media you have rights to use. Audio can be supplied with `--music path/to/licensed-track.mp3`.
+This remains available for simple typography-based videos. Website promos use the separate `capture_site.py` and `render_website.py` pipeline.
 
 ### Editing options
 
@@ -86,4 +145,4 @@ The skill instructions live in `SKILL.md`. Copy the skill directory into the ski
 
 ## Project status
 
-Early MVP. The baseline renderer focuses on reliable local rendering; browser capture, richer compositing, narration integration, and automated visual review are planned improvements. No paid API is required for the baseline renderer.
+The website capture and motion-rendering path is an early implementation. It has not yet been verified end-to-end on every operating system or website. Inspect captures, validate the rendered MP4, and review playback before publishing. No paid API is required.
