@@ -57,6 +57,29 @@ python scripts/validate_video.py brag-output/motionbrag.mp4
 
 The renderer creates animated typography scenes as a starter pipeline. For a real product promo, use the skill workflow to capture product screens, replace or supplement title cards with those visuals, add intentional transitions, and use only media you have rights to use. Audio can be supplied with `--music path/to/licensed-track.mp3`.
 
+### Editing options
+
+All options below are optional. Omitting them keeps the original render filter and appearance. Existing `transition` and `transition_duration` still enable scene transitions; add `transition_style` to choose `fade` (default), `wipe_left`, `wipe_right`, `slide_left`, or `slide_right`.
+
+```json
+{
+  "transition": "crossfade",
+  "transition_duration": 0.5,
+  "transition_style": "wipe_left",
+  "title_animation": "slide_up",
+  "keyframe_zoom": {"from": 1.0, "to": 1.06},
+  "speed_ramp": "ease_in_out",
+  "effect": "pulse",
+  "beat_sync_bpm": 120,
+  "captions": true,
+  "overlays": [{"image": "assets/sticker.png", "x": 0.82, "y": 0.76, "width": 0.12, "opacity": 0.9}]
+}
+```
+
+`title_animation` accepts `fade` or `slide_up`. `keyframe_zoom` linearly animates scale between its `from` and `to` values (clamped to 1.0–1.2); `speed_ramp: "ease_in_out"` eases that scale motion. `effect` accepts `shake`, `glitch`, `pulse`, or `flash`. `beat_sync_bpm` (30–240) snaps scene cuts to the nearest beat and adds a subtle visual pulse; it uses the supplied BPM, not automatic music analysis. `captions: true` renders each scene's supplied `caption` text as a lower-third caption; it does not transcribe audio. `overlays` accepts user-supplied image paths and normalized `x`, `y`, `width`, and `opacity`; it can also be set on an individual scene to override the brief-level list. No stock stickers or proprietary assets are bundled.
+
+These are deterministic FFmpeg/Pillow techniques. Fully automatic speech recognition, music beat detection, and complex AI/path-based animation are intentionally outside this renderer's dependencies.
+
 ## Skill installation
 
 The skill instructions live in `SKILL.md`. Copy the skill directory into the skills location supported by your agent, or ask the agent to use this repository's `SKILL.md`. Skill discovery paths vary by agent.
